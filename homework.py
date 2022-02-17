@@ -58,10 +58,11 @@ def check_response(response):
     """Проверка ответа от API."""
     if 'homeworks' not in response:
         raise TypeError('Ответ не содержит ключ homeworks')
-    if not isinstance(response.get('homeworks'), list):
+    homeworks = response.get('homeworks')
+    if not isinstance(homeworks, list):
         raise TypeError('Неправильный тип данных homeworks')
-    if response.get('homeworks'):
-        homework, *_ = response.get('homeworks')
+    if homeworks:
+        homework, *_ = homeworks
         if not isinstance(homework, dict):
             raise TypeError('Неправильный тип данных homework')
 
@@ -129,8 +130,6 @@ def main():
                 logger.info(f'Бот отправил сообщение: {message}')
                 cache_message = message
             time.sleep(RETRY_TIME)
-        # else:
-        # ...
 
 
 if __name__ == '__main__':
