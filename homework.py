@@ -69,7 +69,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Извлекает статус этой работы"""
+    """Извлекает статус этой работы."""
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     try:
