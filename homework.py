@@ -34,35 +34,48 @@ HOMEWORK_STATUSES = {
 
 
 def send_message(bot, message):
-
+    """Отправка сообщения ботом."""
     bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
 def get_api_answer(current_timestamp):
+    """Запрос к API, проверка статуса."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
-    response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-    if response.status_code == 200:
+    try:
+        response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+        if response.status_code != 200:
+            raise Exception(response.status_code)
         return response.json()
-    return response
+
+    except Exception as error:
+        raise Exception(
+            f'Эндпоинт {ENDPOINT} недоступен. Код ответа API: {error}'
+        )
 
 
 def check_response(response):
+    """Проверка ответа от API."""
+    if 'homeworks' not in response:
+        raise TypeError('Ответ не содержит ключ homeworks')
+    if not isinstance(response.get('homeworks'), list):
+        raise TypeError('Неправильный тип данных homeworks')
+    if response.get('homeworks'):
+        homework, *_ = response.get('homeworks')
+        if not isinstance(homework, dict):
+            raise TypeError('Неправильный тип данных homework')
 
-    if response.get('current_date'):
-        return True
-    return False
+    return response.get('homeworks')
 
 
 def parse_status(homework):
+    """Извлекает статус этой работы"""
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
-
-    # ...
-
-    verdict = HOMEWORK_STATUSES[homework_status]
-
-    # ...
+    try:
+        verdict = HOMEWORK_STATUSES[homework_status]
+    except Exception:
+        raise KeyError(f'Неизвестный статус работы {homework_status}')
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
@@ -70,22 +83,24 @@ def parse_status(homework):
 def check_tokens():
     """Проверка заполнения переменных окружения."""
     if not PRACTICUM_TOKEN:
-        return 'PRACTICUM_TOKEN'
+        return False
     elif not TELEGRAM_TOKEN:
-        return 'TELEGRAM_TOKEN'
+        return False
     elif not TELEGRAM_CHAT_ID:
-        return 'TELEGRAM_CHAT_ID'
-    return False
+        return False
+    return True
 
 
 def main():
     """Основная логика работы бота."""
     cache_message = ''
-    check_token = check_tokens()
-    if check_token:
-        logger.critical(f'Не заполнена переменная окружения {check_token}')
-        logger.critical('Работа программы остановлена')
-        raise ValueError(f'Не заполнена переменная окружения {check_token}')
+    if not check_tokens():
+        logger.critical(
+            'Не заполнены переменные окружения. Работа программы остановлена'
+        )
+        raise ValueError(
+            'Не заполнены переменные окружения. Работа программы остановлена'
+        )
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time()) - 25 * 24 * 60 * 60
@@ -95,47 +110,24 @@ def main():
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            if isinstance(response, requests.models.Response):
-                message = (
-                    f'Сбой в работе программы: Эндпоинт {ENDPOINT} '
-                    f'недоступен. Код ответа API: {response.status_code}'
-                )
-                logger.error(message)
-                if cache_message != message:
-                    send_message(bot, message)
-                    logger.info(f'Бот отправил сообщение: {message}')
-                    cache_message = message
-            else:
-                if check_response(response):
-                    logger.debug('Ответ API прошел проверку на корректность')
-                    if response.get('homeworks'):
-                        homework, *_ = response.get('homeworks')
-                        message = parse_status(homework)
-                        send_message(bot, message)
-                        current_timestamp = int(response.get('current_date'))
-                        logger.info(f'Бот отправил сообщение: {message}')
-                        cache_message = message
-                else:
-
-                    logger.error(
-                        'Ответ API не прошел проверку на корректность'
-                    )
-                    if cache_message != message:
-                        send_message(
-                            bot, 'Ответ API не прошел проверку на корректность'
-                        )
-                        logger.info(
-                            'Бот отправил сообщение: Ответ API не прошел '
-                            'проверку на корректность'
-                        )
-                        cache_message = message
-
+            homeworks = check_response(response)
+            logger.debug('Ответ API прошел проверку на корректность')
+            if homeworks:
+                homework, *_ = homeworks
+                message = parse_status(homework)
+                send_message(bot, message)
+                current_timestamp = int(response.get('current_date'))
+                logger.info(f'Бот отправил сообщение: {message}')
+                cache_message = message
             time.sleep(RETRY_TIME)
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            print(message)
-            # ...
+            logger.error(message)
+            if cache_message != message:
+                send_message(bot, message)
+                logger.info(f'Бот отправил сообщение: {message}')
+                cache_message = message
             time.sleep(RETRY_TIME)
         # else:
         # ...
