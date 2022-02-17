@@ -103,7 +103,7 @@ def main():
         )
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time()) - 25 * 24 * 60 * 60
+    current_timestamp = int(time.time())
 
     logger.debug(f'Временная метка в формате Unix time: {current_timestamp}')
 
