@@ -66,7 +66,7 @@ def check_response(response):
         if not isinstance(homework, dict):
             raise TypeError('Неправильный тип данных homework')
 
-    return response.get('homeworks')
+    return homeworks
 
 
 def parse_status(homework):
